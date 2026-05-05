@@ -419,6 +419,60 @@ def dataframe_to_mapping_rules(dataframe: pd.DataFrame, rule_ids: list[str]) -> 
     return mapping_rules
 
 
+def normalize_editor_snapshot(
+    snapshot: object,
+    fallback_rows: list[dict[str, object]],
+) -> list[dict[str, object]] | None:
+    if isinstance(snapshot, pd.DataFrame):
+        return snapshot.to_dict(orient="records")
+
+    if isinstance(snapshot, list):
+        normalized_rows: list[dict[str, object]] = []
+        for row in snapshot:
+            if isinstance(row, dict):
+                normalized_rows.append(dict(row))
+        return normalized_rows
+
+    if not isinstance(snapshot, dict):
+        return None
+
+    if all(isinstance(key, str) for key in snapshot.keys()) and "edited_rows" not in snapshot:
+        try:
+            dataframe = pd.DataFrame(snapshot)
+        except ValueError:
+            return None
+        return dataframe.to_dict(orient="records")
+
+    rows = [dict(row) for row in fallback_rows]
+    edited_rows = snapshot.get("edited_rows", {})
+    if isinstance(edited_rows, dict):
+        for row_index, changes in edited_rows.items():
+            try:
+                index = int(row_index)
+            except Exception:
+                continue
+            if not isinstance(changes, dict) or not (0 <= index < len(rows)):
+                continue
+            rows[index].update(changes)
+
+    added_rows = snapshot.get("added_rows", [])
+    if isinstance(added_rows, list):
+        for row in added_rows:
+            if isinstance(row, dict):
+                rows.append(dict(row))
+
+    deleted_rows = snapshot.get("deleted_rows", [])
+    if isinstance(deleted_rows, list):
+        for row_index in sorted(
+            (safe_int(row) for row in deleted_rows),
+            reverse=True,
+        ):
+            if 0 <= row_index < len(rows):
+                rows.pop(row_index)
+
+    return rows
+
+
 def safe_int(value: object) -> int:
     try:
         return int(value)
@@ -437,10 +491,14 @@ def sync_rules_from_editor() -> None:
     snapshot = st.session_state.get("mapping_editor")
     cached = st.session_state.mapping_editor_snapshot
     if snapshot and snapshot != cached and st.session_state.mapping_rules:
+        fallback_rows = cached if isinstance(cached, list) else []
+        normalized_rows = normalize_editor_snapshot(snapshot, fallback_rows)
+        if normalized_rows is None:
+            return
         rule_ids = [str(rule["rule_id"]) for rule in st.session_state.mapping_rules]
-        dataframe = pd.DataFrame(snapshot)
+        dataframe = pd.DataFrame(normalized_rows)
         st.session_state.mapping_rules = dataframe_to_mapping_rules(dataframe, rule_ids)
-        st.session_state.mapping_editor_snapshot = snapshot
+        st.session_state.mapping_editor_snapshot = normalized_rows
 
 
 if __name__ == "__main__":
