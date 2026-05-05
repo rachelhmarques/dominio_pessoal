@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.streamlit/secrets.toml
+.venv/
+venv/
+.pytest_cache/
+output.txt
+debug_fragments.js
+dump_text.js
+test_logic.js
+test_sheetjs.js
+app.js
+index.html
+styles.css
+templates/
+DOMINIO LANCAMENTO - *.csv
+Resumo Mensal*.xls
+app.py
+read_xls.py
