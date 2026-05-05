@@ -13,6 +13,7 @@ from dominio_parser import (
     analyze_workbook,
     build_empty_mapping_rule,
     build_preview,
+    merge_analysis_states,
     mapping_rules_from_state,
     serialize_preview_for_excel,
     source_options,
@@ -143,8 +144,9 @@ def render_header() -> None:
           <div class="eyebrow">Importação Setor Pessoal</div>
           <h1>Domínio Lançamento em Streamlit</h1>
           <p>
-            Envie o <strong>Resumo Mensal</strong>, confira os lançamentos gerados na tela,
-            revise a memória de cálculo, ajuste o mapeamento e exporte o resultado em
+            Envie o <strong>Resumo Mensal</strong> e, se houver, o arquivo complementar do
+            <strong>13º</strong>. Depois confira os lançamentos gerados na tela, revise a
+            memória de cálculo, ajuste o mapeamento e exporte o resultado em
             <strong>CSV</strong> ou <strong>Excel</strong>.
           </p>
         </div>
@@ -156,20 +158,33 @@ def render_header() -> None:
 def handle_upload() -> None:
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
-        "Arquivo do Resumo Mensal",
+        "Arquivo principal do Resumo Mensal",
         type=["xls", "xlsx"],
         help="No Streamlit Cloud, prefira arquivos .xls ou .xlsx lidos diretamente em Python.",
+    )
+    thirteenth_file = st.file_uploader(
+        "Arquivo complementar do 13º (opcional)",
+        type=["xls", "xlsx"],
+        help="Use aqui o modelo Resumo Mensal13 quando quiser consolidar o 13º no mesmo resultado.",
     )
 
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
-        signature = hashlib.sha256(file_bytes).hexdigest()
+        secondary_bytes = thirteenth_file.getvalue() if thirteenth_file is not None else b""
+        signature = hashlib.sha256(file_bytes + b"::" + secondary_bytes).hexdigest()
         if signature != st.session_state.uploaded_signature:
             try:
                 with TemporaryDirectory() as temp_dir:
                     temp_path = Path(temp_dir) / uploaded_file.name
                     temp_path.write_bytes(file_bytes)
                     analyzed_state = analyze_workbook(temp_path)
+
+                    if thirteenth_file is not None:
+                        thirteenth_path = Path(temp_dir) / thirteenth_file.name
+                        thirteenth_path.write_bytes(secondary_bytes)
+                        analyzed_state = merge_analysis_states(
+                            [analyzed_state, analyze_workbook(thirteenth_path)]
+                        )
             except DomainParsingError as exc:
                 st.error(str(exc))
                 st.session_state.analysis_state = None
@@ -187,7 +202,7 @@ def handle_upload() -> None:
                 st.session_state.uploaded_signature = signature
 
     st.markdown(
-        '<div class="helper">A lógica de cálculo fica separada da interface, então o mapeamento pode ser ajustado sem reler a planilha a cada edição.</div>',
+        '<div class="helper">A lógica de cálculo fica separada da interface, então o mapeamento pode ser ajustado sem reler as planilhas a cada edição.</div>',
         unsafe_allow_html=True,
     )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -210,13 +225,14 @@ def current_preview() -> dict[str, object]:
 
 
 def render_empty_state() -> None:
-    st.info("Envie uma planilha para gerar a prévia dos lançamentos.")
+    st.info("Envie o Resumo Mensal e, se necessário, o arquivo complementar do 13º para gerar a prévia dos lançamentos.")
 
 
 def render_summary(preview: dict[str, object]) -> None:
     st.markdown('<div class="section-card">', unsafe_allow_html=True)
     st.subheader("Resumo da análise")
-    st.caption(f"Arquivo {preview['workbook_name']} · Filial {preview['branch_code']}")
+    caption_label = "Arquivos" if " + " in str(preview["workbook_name"]) else "Arquivo"
+    st.caption(f"{caption_label} {preview['workbook_name']} · Filial {preview['branch_code']}")
 
     cols = st.columns(4)
     metrics = [
@@ -251,17 +267,18 @@ def render_exports(preview: dict[str, object]) -> None:
         col_csv, col_xlsx = st.columns(2)
         csv_bytes = write_csv_bytes(list(preview["entry_csv_rows"]))
         excel_bytes = serialize_preview_for_excel(preview)
+        suffix = " (com 13º)" if preview.get("has_thirteenth_summary") else ""
         col_csv.download_button(
             "Baixar CSV",
             data=csv_bytes,
-            file_name=f"DOMINIO LANCAMENTO - {preview['branch_code']}.csv",
+            file_name=f"DOMINIO LANCAMENTO - {preview['branch_code']}{suffix}.csv",
             mime="text/csv",
             use_container_width=True,
         )
         col_xlsx.download_button(
             "Baixar Excel",
             data=excel_bytes,
-            file_name=f"DOMINIO LANCAMENTO - {preview['branch_code']}.xlsx",
+            file_name=f"DOMINIO LANCAMENTO - {preview['branch_code']}{suffix}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )

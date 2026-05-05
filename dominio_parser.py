@@ -5,6 +5,7 @@ import json
 import re
 import struct
 import subprocess
+import unicodedata
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
@@ -88,6 +89,57 @@ SOURCE_DEFINITIONS = {
         "memory_prefix": "Soma dos encargos patronais",
         "order": 90,
     },
+    "thirteenth_salary": {
+        "label": "13Âº integral",
+        "description": "Proventos do Resumo Mensal13",
+        "memory_prefix": "Soma dos proventos do 13Âº",
+        "order": 100,
+    },
+    "thirteenth_net_salary": {
+        "label": "13Âº a pagar",
+        "description": "Campo LÃ­quido Geral do Resumo Mensal13",
+        "memory_prefix": "Valor lÃ­quido do 13Âº",
+        "order": 110,
+    },
+    "thirteenth_advance": {
+        "label": "Adiantamento 13Âº",
+        "description": "Rubrica ADIANTAMENTO 13 SALARIO",
+        "memory_prefix": "Valor do adiantamento do 13Âº",
+        "order": 120,
+    },
+    "thirteenth_employee_inss": {
+        "label": "INSS 13Âº empregado",
+        "description": "Campo Segurados do Resumo Mensal13",
+        "memory_prefix": "INSS descontado no 13Âº",
+        "order": 130,
+    },
+    "thirteenth_fgts": {
+        "label": "FGTS 13Âº",
+        "description": "Campo Valor do FGTS do Resumo Mensal13",
+        "memory_prefix": "FGTS calculado no 13Âº",
+        "order": 140,
+    },
+    "thirteenth_pis": {
+        "label": "PIS 13Âº",
+        "description": "Campo Valor PIS do Resumo Mensal13",
+        "memory_prefix": "PIS calculado no 13Âº",
+        "order": 150,
+    },
+    "thirteenth_employer_inss": {
+        "label": "INSS 13Âº patronal",
+        "description": "Empresa + RAT + Terceiros do Resumo Mensal13",
+        "memory_prefix": "Soma dos encargos patronais do 13Âº",
+        "order": 160,
+    },
+}
+THIRTEENTH_SUMMARY_SOURCE_KEYS = {
+    "thirteenth_salary",
+    "thirteenth_net_salary",
+    "thirteenth_advance",
+    "thirteenth_employee_inss",
+    "thirteenth_fgts",
+    "thirteenth_pis",
+    "thirteenth_employer_inss",
 }
 START_LOT_OPTIONS = {
     "always": "Sempre",
@@ -234,8 +286,8 @@ class SafeFormatDict(dict[str, str]):
         return "{" + key + "}"
 
 
-def default_mapping_rules() -> list[MappingRule]:
-    return [
+def default_mapping_rules(include_thirteenth_summary: bool = False) -> list[MappingRule]:
+    rules = [
         MappingRule(
             rule_id="vacation_provision",
             label="Provisão férias",
@@ -336,6 +388,93 @@ def default_mapping_rules() -> list[MappingRule]:
             order=90,
         ),
     ]
+    if include_thirteenth_summary:
+        rules.extend(
+            [
+                MappingRule(
+                    rule_id="thirteenth_salary",
+                    label="13Âº integral",
+                    source_key="thirteenth_salary",
+                    debit_account="1923",
+                    credit_account="",
+                    history_template="PROVISAO 13Âª SALARIO",
+                    start_lot_strategy="always",
+                    active=True,
+                    order=100,
+                ),
+                MappingRule(
+                    rule_id="thirteenth_net_salary",
+                    label="13Âº a pagar",
+                    source_key="thirteenth_net_salary",
+                    debit_account="",
+                    credit_account="1910",
+                    history_template="13Âª A PAGAR",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=110,
+                ),
+                MappingRule(
+                    rule_id="thirteenth_advance",
+                    label="Adiantamento 13Âº",
+                    source_key="thirteenth_advance",
+                    debit_account="",
+                    credit_account="1763",
+                    history_template="ADIANTAMENTO 13Âª SALARIO",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=120,
+                ),
+                MappingRule(
+                    rule_id="thirteenth_employee_inss",
+                    label="INSS 13Âº empregado",
+                    source_key="thirteenth_employee_inss",
+                    debit_account="",
+                    credit_account="1903",
+                    history_template="INSS 13Âª SALARIO",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=130,
+                ),
+                MappingRule(
+                    rule_id="thirteenth_fgts",
+                    label="FGTS 13Âº",
+                    source_key="thirteenth_fgts",
+                    debit_account="2587",
+                    credit_account="1904",
+                    history_template="FGTS REF 13Âª SALARIO",
+                    start_lot_strategy="always",
+                    active=True,
+                    order=140,
+                ),
+                MappingRule(
+                    rule_id="thirteenth_pis",
+                    label="PIS 13Âº",
+                    source_key="thirteenth_pis",
+                    debit_account="2593",
+                    credit_account="1915",
+                    history_template="PIS REF 13Âª SALARIO",
+                    start_lot_strategy="always",
+                    active=True,
+                    order=150,
+                ),
+                MappingRule(
+                    rule_id="thirteenth_employer_inss",
+                    label="INSS 13Âº patronal",
+                    source_key="thirteenth_employer_inss",
+                    debit_account="2586",
+                    credit_account="1903",
+                    history_template="PIS REF 13Âª SALARIO",
+                    start_lot_strategy="always",
+                    active=True,
+                    order=160,
+                ),
+            ]
+        )
+        for rule in rules:
+            if rule.source_key in THIRTEENTH_SUMMARY_SOURCE_KEYS:
+                rule.label = rule.label.replace("Âº", "\u00ba")
+                rule.history_template = rule.history_template.replace("Âª", "\u00aa")
+    return rules
 
 
 def build_empty_mapping_rule(next_order: int | None = None) -> MappingRule:
@@ -678,14 +817,14 @@ def split_page_one_blocks(rows: list[WorksheetRow]) -> list[CompetencyBlock]:
     def flush_current() -> None:
         if not current_date or not current_rows:
             return
-        joined = "\n".join(" | ".join(item.cells) for item in current_rows)
-        is_page_two = "Apuração Tributos Federais" in joined
-        is_page_one = "Folha Mensal" in joined or "Líquido Geral:" in joined
+        joined = normalize_key("\n".join(" | ".join(item.cells) for item in current_rows))
+        is_page_two = "APURACAO TRIBUTOS FEDERAIS" in joined
+        is_page_one = "FOLHA MENSAL" in joined or "LIQUIDO GERAL:" in joined
         if is_page_one and not is_page_two:
             blocks.append(CompetencyBlock(competency_date=current_date, rows=current_rows.copy()))
 
     for row in rows:
-        if len(row.cells) >= 2 and row.cells[0] == "Competência:":
+        if len(row.cells) >= 2 and normalize_key(row.cells[0]) == "COMPETENCIA:":
             flush_current()
             current_date = parse_competency_date(row.cells[1])
             current_rows = [row]
@@ -698,6 +837,14 @@ def split_page_one_blocks(rows: list[WorksheetRow]) -> list[CompetencyBlock]:
     return blocks
 
 
+def is_thirteenth_summary_workbook(rows: Iterable[WorksheetRow]) -> bool:
+    for row in rows:
+        if len(row.cells) >= 2 and normalize_key(row.cells[0]) == "CALCULO:":
+            if "13" in normalize_key(row.cells[1]):
+                return True
+    return False
+
+
 def parse_competency_date(raw_value: str) -> date:
     if "/" in raw_value:
         return datetime.strptime(raw_value, "%d/%m/%Y").date()
@@ -706,11 +853,19 @@ def parse_competency_date(raw_value: str) -> date:
     return date.fromordinal(excel_epoch.toordinal() + serial)
 
 
+def special_thirteenth_posting_date(competency_date: date) -> str:
+    return f"20/12/{competency_date.year}"
+
+
 def find_value_after_label(block: CompetencyBlock, label: str) -> Decimal:
+    normalized_label = normalize_key(label)
     for row in block.rows:
         for index, cell in enumerate(row.cells[:-1]):
-            if cell == label:
-                return parse_decimal(row.cells[index + 1])
+            if normalize_key(cell) == normalized_label:
+                try:
+                    return parse_decimal(row.cells[index + 1])
+                except Exception:
+                    continue
     return Decimal("0.00")
 
 
@@ -747,25 +902,13 @@ def is_vacation_provento(name: str) -> bool:
 
 def is_thirteenth_provento(name: str) -> bool:
     normalized = normalize_key(name)
-    return "13O" in normalized or "13º" in name
+    return "13" in normalized
 
 
 def normalize_key(value: str) -> str:
-    return (
-        value.upper()
-        .replace("Á", "A")
-        .replace("À", "A")
-        .replace("Ã", "A")
-        .replace("Â", "A")
-        .replace("É", "E")
-        .replace("Ê", "E")
-        .replace("Í", "I")
-        .replace("Ó", "O")
-        .replace("Ô", "O")
-        .replace("Õ", "O")
-        .replace("Ú", "U")
-        .replace("Ç", "C")
-    )
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
+    return ascii_only.upper()
 
 
 def find_last_numeric_cell(cells: list[str]) -> Decimal | None:
@@ -897,6 +1040,101 @@ def build_context(block: CompetencyBlock) -> CalculationContext:
     )
 
 
+def build_thirteenth_summary_context(rows: list[WorksheetRow]) -> CalculationContext:
+    competency_row = next(
+        (
+            row
+            for row in rows
+            if len(row.cells) >= 2 and row.cells[0] == "CompetÃªncia:"
+        ),
+        None,
+    )
+    if competency_row is None:
+        competency_row = next(
+            (
+                row
+                for row in rows
+                if len(row.cells) >= 2 and normalize_key(row.cells[0]) == "COMPETENCIA:"
+            ),
+            None,
+        )
+    if competency_row is None:
+        raise DomainParsingError("NÃ£o foi possÃ­vel identificar a competÃªncia do arquivo do 13Âº.")
+
+    competency_date = parse_competency_date(competency_row.cells[1])
+    start_index = rows.index(competency_row)
+    block = CompetencyBlock(competency_date=competency_date, rows=rows[start_index:])
+    rubrics = collect_rubrics(block)
+    provento_rubrics = collect_provento_rubrics(block)
+
+    thirteenth_components = [
+        (name, value)
+        for name, value in provento_rubrics.items()
+        if is_thirteenth_provento(name)
+        if value > 0
+    ]
+    thirteenth_advance_components = [
+        ("ADIANTAMENTO 13 SALARIO", rubrics.get("ADIANTAMENTO 13 SALARIO", Decimal("0.00")))
+    ]
+    thirteenth_employee_inss_components = [("Segurados", find_value_after_label(block, "Segurados:"))]
+    thirteenth_fgts_components = [("Valor do FGTS", find_value_after_label(block, "Valor do FGTS:"))]
+    thirteenth_pis_components = [("Valor PIS", find_value_after_label(block, "Valor PIS:"))]
+    thirteenth_net_components = [("LÃ­quido Geral", find_value_after_label(block, "LÃ­quido Geral:"))]
+    thirteenth_net_components = [("Líquido Geral", find_value_after_label(block, "Líquido Geral:"))]
+    thirteenth_employer_components = [
+        ("Empresa", find_value_after_label(block, "Empresa:")),
+        ("RAT", find_value_after_label(block, "RAT:")),
+        ("Terceiros", find_value_after_label(block, "Terceiros:")),
+    ]
+
+    values = {
+        "vacation_total": Decimal("0.00"),
+        "thirteenth_difference": Decimal("0.00"),
+        "regular_salary": Decimal("0.00"),
+        "vacation_advance": Decimal("0.00"),
+        "net_salary": Decimal("0.00"),
+        "employee_inss": Decimal("0.00"),
+        "fgts": Decimal("0.00"),
+        "pis": Decimal("0.00"),
+        "employer_inss": Decimal("0.00"),
+        "thirteenth_salary": sum_decimal(value for _, value in thirteenth_components),
+        "thirteenth_net_salary": thirteenth_net_components[0][1],
+        "thirteenth_advance": thirteenth_advance_components[0][1],
+        "thirteenth_employee_inss": thirteenth_employee_inss_components[0][1],
+        "thirteenth_fgts": thirteenth_fgts_components[0][1],
+        "thirteenth_pis": thirteenth_pis_components[0][1],
+        "thirteenth_employer_inss": sum_decimal(value for _, value in thirteenth_employer_components),
+    }
+    components = {
+        "vacation_total": [],
+        "thirteenth_difference": [],
+        "regular_salary": [],
+        "vacation_advance": [],
+        "net_salary": [],
+        "employee_inss": [],
+        "fgts": [],
+        "pis": [],
+        "employer_inss": [],
+        "thirteenth_salary": thirteenth_components,
+        "thirteenth_net_salary": [item for item in thirteenth_net_components if item[1] > 0],
+        "thirteenth_advance": [item for item in thirteenth_advance_components if item[1] > 0],
+        "thirteenth_employee_inss": [item for item in thirteenth_employee_inss_components if item[1] > 0],
+        "thirteenth_fgts": [item for item in thirteenth_fgts_components if item[1] > 0],
+        "thirteenth_pis": [item for item in thirteenth_pis_components if item[1] > 0],
+        "thirteenth_employer_inss": [item for item in thirteenth_employer_components if item[1] > 0],
+    }
+    flags = {"has_special_opening": values["thirteenth_salary"] > 0}
+
+    return CalculationContext(
+        competency_date=competency_date,
+        posting_date=special_thirteenth_posting_date(competency_date),
+        reference=month_reference(competency_date),
+        values=values,
+        components=components,
+        flags=flags,
+    )
+
+
 def sum_decimal(values: Iterable[Decimal]) -> Decimal:
     total = Decimal("0.00")
     for value in values:
@@ -985,8 +1223,13 @@ def analysis_to_state(
     workbook_name: str,
     contexts: list[CalculationContext],
     mapping_rules: list[MappingRule] | None = None,
+    include_thirteenth_summary: bool = False,
 ) -> dict[str, object]:
-    rules = mapping_rules if mapping_rules is not None else default_mapping_rules()
+    rules = (
+        mapping_rules
+        if mapping_rules is not None
+        else default_mapping_rules(include_thirteenth_summary=include_thirteenth_summary)
+    )
     return {
         "branch_code": branch_code,
         "workbook_name": workbook_name,
@@ -999,12 +1242,47 @@ def analyze_workbook(workbook_path: str | Path) -> dict[str, object]:
     workbook_path = Path(workbook_path)
     rows = run_excel_extractor(workbook_path)
     branch_code = extract_company_code(rows)
-    blocks = split_page_one_blocks(rows)
-    contexts = [build_context(block) for block in blocks]
+    if is_thirteenth_summary_workbook(rows):
+        contexts = [build_thirteenth_summary_context(rows)]
+        include_thirteenth_summary = True
+    else:
+        blocks = split_page_one_blocks(rows)
+        contexts = [build_context(block) for block in blocks]
+        include_thirteenth_summary = False
     return analysis_to_state(
         branch_code=branch_code,
         workbook_name=workbook_path.name,
         contexts=contexts,
+        include_thirteenth_summary=include_thirteenth_summary,
+    )
+
+
+def merge_analysis_states(states: list[dict[str, object]]) -> dict[str, object]:
+    if not states:
+        raise DomainParsingError("Nenhum arquivo foi enviado para consolidaÃ§Ã£o.")
+
+    branch_codes = {str(state["branch_code"]) for state in states}
+    if len(branch_codes) != 1:
+        raise DomainParsingError("Os arquivos enviados precisam pertencer Ã  mesma filial.")
+
+    contexts: list[CalculationContext] = []
+    include_thirteenth_summary = False
+    workbook_names: list[str] = []
+
+    for state in states:
+        contexts.extend(contexts_from_state(state))
+        workbook_names.append(str(state["workbook_name"]))
+        if any(
+            rule.source_key in THIRTEENTH_SUMMARY_SOURCE_KEYS
+            for rule in mapping_rules_from_state(state)
+        ):
+            include_thirteenth_summary = True
+
+    return analysis_to_state(
+        branch_code=branch_codes.pop(),
+        workbook_name=" + ".join(workbook_names),
+        contexts=contexts,
+        include_thirteenth_summary=include_thirteenth_summary,
     )
 
 
@@ -1083,6 +1361,21 @@ def build_preview(state: dict[str, object]) -> dict[str, object]:
             }
         )
 
+    separator_before_entry_index = next(
+        (
+            index
+            for index, entry in enumerate(entries)
+            if entry.source_key in THIRTEENTH_SUMMARY_SOURCE_KEYS
+        ),
+        None,
+    )
+    entry_csv_rows = [entry.to_csv_row() for entry in entries]
+    if separator_before_entry_index not in (None, 0):
+        entry_csv_rows.insert(
+            separator_before_entry_index,
+            {field: "" for field in CSV_HEADER},
+        )
+
     preview_rules = []
     for rule in sorted(rules, key=lambda item: (item.order, item.label.lower(), item.rule_id)):
         preview_rules.append(
@@ -1093,11 +1386,21 @@ def build_preview(state: dict[str, object]) -> dict[str, object]:
             }
         )
 
+    has_thirteenth_summary = any(
+        any(
+            context.values.get(source_key, Decimal("0.00")) > 0
+            for source_key in THIRTEENTH_SUMMARY_SOURCE_KEYS
+        )
+        for context in contexts
+    )
+
     return {
         "branch_code": branch_code,
         "workbook_name": str(state["workbook_name"]),
+        "has_thirteenth_summary": has_thirteenth_summary,
+        "separator_before_entry_index": separator_before_entry_index,
         "entries": preview_entries,
-        "entry_csv_rows": [entry.to_csv_row() for entry in entries],
+        "entry_csv_rows": entry_csv_rows,
         "mapping_rules": preview_rules,
         "source_options": source_options(),
         "competencies": competencies,
@@ -1109,8 +1412,14 @@ def build_preview(state: dict[str, object]) -> dict[str, object]:
     }
 
 
-def generate_csv_rows(workbook_path: str | Path) -> tuple[str, list[dict[str, str]]]:
+def generate_csv_rows(
+    workbook_path: str | Path,
+    supplementary_workbook_path: str | Path | None = None,
+) -> tuple[str, list[dict[str, str]]]:
     state = analyze_workbook(workbook_path)
+    if supplementary_workbook_path is not None:
+        supplementary_state = analyze_workbook(supplementary_workbook_path)
+        state = merge_analysis_states([state, supplementary_state])
     preview = build_preview(state)
     return str(preview["branch_code"]), list(preview["entry_csv_rows"])
 
@@ -1128,7 +1437,10 @@ def serialize_preview_for_excel(preview: dict[str, object]) -> bytes:
         cell.font = header_font
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    for entry in list(preview["entries"]):
+    separator_before_entry_index = preview.get("separator_before_entry_index")
+    for index, entry in enumerate(list(preview["entries"])):
+        if separator_before_entry_index == index:
+            launches.append([""] * 13)
         launches.append(
             [
                 entry["posting_date"],

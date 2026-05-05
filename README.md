@@ -1,6 +1,6 @@
 # Domínio Pessoal
 
-Aplicação em Python para transformar o relatório `Resumo Mensal` do setor pessoal em lançamentos do `DOMINIO LANCAMENTO`, com:
+Aplicação em Python para transformar o relatório `Resumo Mensal` do setor pessoal em lançamentos do `DOMINIO LANCAMENTO`, com suporte a consolidação opcional do arquivo complementar `Resumo Mensal13`, além de:
 
 - prévia dos lançamentos na tela
 - memória de cálculo por competência
@@ -42,11 +42,12 @@ http://localhost:8501
 
 ## Fluxo
 
-1. Envie o arquivo `Resumo Mensal` da filial.
-2. A aplicação identifica as competências e calcula as bases da folha.
-3. Os lançamentos aparecem na tela com memória de cálculo.
-4. O mapeamento pode ser editado sem reler a planilha.
-5. O resultado pode ser exportado em `CSV` ou `XLSX`.
+1. Envie o arquivo principal `Resumo Mensal` da filial.
+2. Se houver 13º separado, envie também o arquivo complementar `Resumo Mensal13`.
+3. A aplicação identifica as competências e calcula as bases da folha.
+4. Os lançamentos aparecem na tela com memória de cálculo.
+5. O mapeamento pode ser editado sem reler as planilhas.
+6. O resultado pode ser exportado em `CSV` ou `XLSX`.
 
 ## Validação local
 
