@@ -474,6 +474,9 @@ def default_mapping_rules(include_thirteenth_summary: bool = False) -> list[Mapp
             if rule.source_key in THIRTEENTH_SUMMARY_SOURCE_KEYS:
                 rule.label = rule.label.replace("Âº", "\u00ba")
                 rule.history_template = rule.history_template.replace("Âª", "\u00aa")
+    for rule in rules:
+        rule.label = sanitize_text(rule.label)
+        rule.history_template = sanitize_text(rule.history_template)
     return rules
 
 
@@ -964,8 +967,27 @@ def format_value(value: Decimal) -> str:
     return text
 
 
+def sanitize_text(value: object) -> str:
+    text = str(value)
+    replacements = [
+        ("Âº", "\u00ba"),
+        ("Âª", "\u00aa"),
+        ("繙", "\u00ba"),
+        ("穠", "\u00aa"),
+        ("L黠xadquido", "L\u00edquido"),
+        ("l黠xadquido", "l\u00edquido"),
+        ("LÃ­quido", "L\u00edquido"),
+        ("lÃ­quido", "l\u00edquido"),
+        ("CompetÃªncia", "Compet\u00eancia"),
+        ("CompetÃƒÂªncia", "Compet\u00eancia"),
+    ]
+    for source, target in replacements:
+        text = text.replace(source, target)
+    return text
+
+
 def source_label(source_key: str) -> str:
-    return SOURCE_DEFINITIONS.get(source_key, {}).get("label", source_key)
+    return sanitize_text(SOURCE_DEFINITIONS.get(source_key, {}).get("label", source_key))
 
 
 def build_context(block: CompetencyBlock) -> CalculationContext:
@@ -1157,15 +1179,20 @@ def apply_start_lot_strategy(rule: MappingRule, context: CalculationContext) -> 
 def build_memory_text(context: CalculationContext, source_key: str) -> str:
     value = context.values.get(source_key, Decimal("0.00"))
     components = [item for item in context.components.get(source_key, []) if item[1] > 0]
-    prefix = SOURCE_DEFINITIONS.get(source_key, {}).get("memory_prefix", source_label(source_key))
+    prefix = sanitize_text(
+        SOURCE_DEFINITIONS.get(source_key, {}).get("memory_prefix", source_label(source_key))
+    )
 
     if not components:
         return f"{prefix}: {format_value(value)}"
     if len(components) == 1:
         label, component_value = components[0]
-        return f"{prefix}: {label} = {format_value(component_value)}"
+        return f"{prefix}: {sanitize_text(label)} = {format_value(component_value)}"
 
-    parts = " + ".join(f"{label} {format_value(component_value)}" for label, component_value in components)
+    parts = " + ".join(
+        f"{sanitize_text(label)} {format_value(component_value)}"
+        for label, component_value in components
+    )
     return f"{prefix}: {parts} = {format_value(value)}"
 
 
@@ -1178,7 +1205,7 @@ def render_history_template(rule: MappingRule, context: CalculationContext, bran
         posting_date=context.posting_date,
         source_label=source_label(rule.source_key),
     )
-    return rule.history_template.format_map(payload)
+    return sanitize_text(rule.history_template.format_map(payload))
 
 
 def build_entries(
@@ -1303,8 +1330,8 @@ def source_options() -> list[dict[str, str | int]]:
         options.append(
             {
                 "key": key,
-                "label": str(config["label"]),
-                "description": str(config["description"]),
+                "label": sanitize_text(config["label"]),
+                "description": sanitize_text(config["description"]),
                 "order": int(config["order"]),
             }
         )
