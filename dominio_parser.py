@@ -59,6 +59,12 @@ SOURCE_DEFINITIONS = {
         "memory_prefix": "Valor do adiantamento de férias",
         "order": 40,
     },
+    "transport_discount": {
+        "label": "Vale-transporte descontado em folha",
+        "description": "Rubrica VALE TRANSPORTE",
+        "memory_prefix": "Valor do vale-transporte descontado em folha",
+        "order": 45,
+    },
     "net_salary": {
         "label": "Salários a pagar",
         "description": "Campo Líquido Geral",
@@ -1014,6 +1020,9 @@ def build_context(block: CompetencyBlock) -> CalculationContext:
     vacation_advance_components = [
         ("ADIANTAMENTO DE FERIAS", rubrics.get("ADIANTAMENTO DE FERIAS", Decimal("0.00")))
     ]
+    transport_discount_components = [
+        ("VALE TRANSPORTE", rubrics.get("VALE TRANSPORTE", Decimal("0.00")))
+    ]
     employee_inss_components = [("Segurados", find_value_after_label(block, "Segurados:"))]
     fgts_components = [("Valor do FGTS", find_value_after_label(block, "Valor do FGTS:"))]
     pis_components = [("Valor PIS", find_value_after_label(block, "Valor PIS:"))]
@@ -1029,6 +1038,7 @@ def build_context(block: CompetencyBlock) -> CalculationContext:
         "thirteenth_difference": sum_decimal(value for _, value in thirteenth_components),
         "regular_salary": sum_decimal(value for _, value in regular_components),
         "vacation_advance": rubrics.get("ADIANTAMENTO DE FERIAS", Decimal("0.00")),
+        "transport_discount": transport_discount_components[0][1],
         "net_salary": net_salary_components[0][1],
         "employee_inss": employee_inss_components[0][1],
         "fgts": fgts_components[0][1],
@@ -1041,6 +1051,9 @@ def build_context(block: CompetencyBlock) -> CalculationContext:
         "regular_salary": regular_components,
         "vacation_advance": [
             item for item in vacation_advance_components if item[1] > 0
+        ],
+        "transport_discount": [
+            item for item in transport_discount_components if item[1] > 0
         ],
         "net_salary": [item for item in net_salary_components if item[1] > 0],
         "employee_inss": [item for item in employee_inss_components if item[1] > 0],
@@ -1114,6 +1127,7 @@ def build_thirteenth_summary_context(rows: list[WorksheetRow]) -> CalculationCon
         "thirteenth_difference": Decimal("0.00"),
         "regular_salary": Decimal("0.00"),
         "vacation_advance": Decimal("0.00"),
+        "transport_discount": Decimal("0.00"),
         "net_salary": Decimal("0.00"),
         "employee_inss": Decimal("0.00"),
         "fgts": Decimal("0.00"),
@@ -1132,6 +1146,7 @@ def build_thirteenth_summary_context(rows: list[WorksheetRow]) -> CalculationCon
         "thirteenth_difference": [],
         "regular_salary": [],
         "vacation_advance": [],
+        "transport_discount": [],
         "net_salary": [],
         "employee_inss": [],
         "fgts": [],

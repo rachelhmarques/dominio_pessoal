@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -26,6 +27,11 @@ st.set_page_config(
     page_icon="📊",
     layout="wide",
 )
+
+
+APP_DIR = Path(__file__).parent
+SHARED_MAPPING_PATH = APP_DIR / "data" / "shared_mapping_rules.json"
+GLOBAL_MAPPING_KEY = "__global__"
 
 
 def main() -> None:
@@ -137,6 +143,102 @@ def init_session_state() -> None:
     st.session_state.setdefault("mapping_editor_snapshot", None)
 
 
+def load_shared_mapping_store() -> dict[str, list[dict[str, object]]]:
+    if not SHARED_MAPPING_PATH.exists():
+        return {}
+    try:
+        payload = json.loads(SHARED_MAPPING_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+
+    normalized: dict[str, list[dict[str, object]]] = {}
+    for branch_code, rules in payload.items():
+        if not isinstance(branch_code, str) or not isinstance(rules, list):
+            continue
+        valid_rules = [dict(rule) for rule in rules if isinstance(rule, dict)]
+        if valid_rules:
+            normalized[branch_code] = valid_rules
+    return normalized
+
+
+def save_shared_mapping_store(store: dict[str, list[dict[str, object]]]) -> None:
+    SHARED_MAPPING_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SHARED_MAPPING_PATH.write_text(
+        json.dumps(store, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def normalize_rule_list(rules: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [rule.to_dict() for rule in mapping_rules_from_state({"mapping_rules": rules})]
+
+
+def merge_mapping_rules(
+    default_rules: list[dict[str, object]],
+    saved_rules: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    normalized_defaults = normalize_rule_list(default_rules)
+    normalized_saved = normalize_rule_list(saved_rules)
+    default_by_id = {
+        str(rule["rule_id"]): dict(rule)
+        for rule in normalized_defaults
+    }
+
+    merged: list[dict[str, object]] = []
+    seen_rule_ids: set[str] = set()
+
+    for saved_rule in normalized_saved:
+        rule_id = str(saved_rule["rule_id"])
+        if rule_id in default_by_id:
+            merged_rule = dict(default_by_id[rule_id])
+            merged_rule.update(saved_rule)
+            merged.append(merged_rule)
+        else:
+            merged.append(dict(saved_rule))
+        seen_rule_ids.add(rule_id)
+
+    for default_rule in normalized_defaults:
+        rule_id = str(default_rule["rule_id"])
+        if rule_id not in seen_rule_ids:
+            merged.append(dict(default_rule))
+
+    return merged
+
+
+def saved_mapping_rules_for_branch(branch_code: str) -> list[dict[str, object]] | None:
+    store = load_shared_mapping_store()
+    rules = store.get(branch_code)
+    if not rules:
+        return None
+    return normalize_rule_list(rules)
+
+
+def saved_global_mapping_rules() -> list[dict[str, object]] | None:
+    store = load_shared_mapping_store()
+    rules = store.get(GLOBAL_MAPPING_KEY)
+    if rules:
+        return normalize_rule_list(rules)
+
+    branch_based_rules = [
+        normalize_rule_list(rules)
+        for key, rules in store.items()
+        if key != GLOBAL_MAPPING_KEY and isinstance(rules, list) and rules
+    ]
+    if branch_based_rules:
+        return branch_based_rules[0]
+    return None
+
+
+def resolve_mapping_rules(analyzed_state: dict[str, object]) -> list[dict[str, object]]:
+    default_rules = [dict(rule) for rule in list(analyzed_state["mapping_rules"])]
+    saved_rules = saved_global_mapping_rules()
+    if not saved_rules:
+        return default_rules
+    return merge_mapping_rules(default_rules, saved_rules)
+
+
 def render_header() -> None:
     st.markdown(
         """
@@ -197,7 +299,7 @@ def handle_upload() -> None:
                 st.session_state.mapping_editor_snapshot = None
             else:
                 st.session_state.analysis_state = analyzed_state
-                st.session_state.mapping_rules = analyzed_state["mapping_rules"]
+                st.session_state.mapping_rules = resolve_mapping_rules(analyzed_state)
                 st.session_state.mapping_editor_snapshot = None
                 st.session_state.uploaded_signature = signature
 
@@ -222,6 +324,37 @@ def current_preview() -> dict[str, object]:
     if state is None:
         raise RuntimeError("Tentativa de montar prévia sem estado de análise.")
     return build_preview(state)
+
+
+def save_current_mapping_as_shared_default() -> None:
+    store = load_shared_mapping_store()
+    store[GLOBAL_MAPPING_KEY] = normalize_rule_list(list(st.session_state.mapping_rules))
+    save_shared_mapping_store(store)
+
+
+def restore_shared_mapping() -> bool:
+    saved_rules = saved_global_mapping_rules()
+    if not saved_rules:
+        return False
+
+    base_state = st.session_state.analysis_state
+    if not base_state:
+        return False
+
+    st.session_state.mapping_rules = merge_mapping_rules(
+        list(base_state["mapping_rules"]),
+        saved_rules,
+    )
+    st.session_state.mapping_editor_snapshot = None
+    return True
+
+
+def reset_mapping_to_analysis_defaults() -> None:
+    base_state = st.session_state.analysis_state
+    if not base_state:
+        return
+    st.session_state.mapping_rules = [dict(rule) for rule in list(base_state["mapping_rules"])]
+    st.session_state.mapping_editor_snapshot = None
 
 
 def render_empty_state() -> None:
@@ -345,7 +478,7 @@ def render_mapping(preview: dict[str, object]) -> None:
     with title_col:
         st.subheader("Mapeamento editável")
         st.markdown(
-            '<div class="helper">Edite contas, histórico, ordem, estratégia de lote e adicione novas regras. O preview acima atualiza automaticamente.</div>',
+            '<div class="helper">Edite contas, histórico, ordem, estratégia de lote e adicione novas regras. O preview acima atualiza automaticamente. Quando salvo, esse padrão passa a valer para todas as empresas.</div>',
             unsafe_allow_html=True,
         )
     with button_col:
@@ -397,6 +530,23 @@ def render_mapping(preview: dict[str, object]) -> None:
 
     st.session_state.mapping_rules = dataframe_to_mapping_rules(editor, rule_ids)
     st.session_state.mapping_editor_snapshot = editor.to_dict(orient="records")
+
+    action_col, restore_col, reset_col = st.columns(3)
+    if action_col.button("Salvar padrão global", use_container_width=True):
+        save_current_mapping_as_shared_default()
+        st.success("Mapeamento global salvo para próximas sessões e para todas as empresas.")
+    if restore_col.button("Recarregar padrão global", use_container_width=True):
+        if restore_shared_mapping():
+            st.rerun()
+        st.info("Nenhum padrão global salvo foi encontrado.")
+    if reset_col.button("Voltar ao padrão da análise", use_container_width=True):
+        reset_mapping_to_analysis_defaults()
+        st.rerun()
+
+    if saved_global_mapping_rules():
+        st.caption(f"Há um padrão global compartilhado salvo em `{SHARED_MAPPING_PATH.name}`.")
+    else:
+        st.caption("Ainda não existe padrão global compartilhado salvo.")
     st.markdown("</div>", unsafe_allow_html=True)
 
 
