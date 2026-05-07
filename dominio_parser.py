@@ -332,6 +332,37 @@ class SafeFormatDict(dict[str, str]):
         return "{" + key + "}"
 
 
+def normalized_history_template(rule: MappingRule) -> str:
+    debit = rule.debit_account.strip()
+    credit = rule.credit_account.strip()
+
+    if rule.source_key in {"employee_inss", "employer_inss"}:
+        if debit and credit:
+            return "INSS REF {reference}"
+        if credit and not debit:
+            return "INSS A RECOLHER {reference}"
+
+    if rule.source_key in {"fgts", "thirteenth_fgts"}:
+        if debit and credit:
+            return "FGTS REF {reference}"
+        if credit and not debit:
+            return "FGTS A RECOLHER {reference}"
+
+    if rule.source_key in {"pis", "thirteenth_pis"}:
+        if debit and credit:
+            return "PIS REF {reference}"
+        if credit and not debit:
+            return "PIS A RECOLHER {reference}"
+
+    return rule.history_template
+
+
+def apply_history_template_conventions(rules: list[MappingRule]) -> list[MappingRule]:
+    for rule in rules:
+        rule.history_template = sanitize_text(normalized_history_template(rule))
+    return rules
+
+
 def default_mapping_rules(
     branch_code: str | None = None,
     include_thirteenth_summary: bool = False,
@@ -616,7 +647,7 @@ def default_mapping_rules(
     for rule in rules:
         rule.label = sanitize_text(rule.label)
         rule.history_template = sanitize_text(rule.history_template)
-    return rules
+    return apply_history_template_conventions(rules)
 
 
 def build_empty_mapping_rule(next_order: int | None = None) -> MappingRule:
@@ -1563,7 +1594,8 @@ def contexts_from_state(state: dict[str, object]) -> list[CalculationContext]:
 
 
 def mapping_rules_from_state(state: dict[str, object]) -> list[MappingRule]:
-    return [MappingRule.from_dict(item) for item in list(state["mapping_rules"])]
+    rules = [MappingRule.from_dict(item) for item in list(state["mapping_rules"])]
+    return apply_history_template_conventions(rules)
 
 
 def source_options() -> list[dict[str, str | int]]:
