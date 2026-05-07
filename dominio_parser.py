@@ -138,6 +138,46 @@ SOURCE_DEFINITIONS = {
         "order": 160,
     },
 }
+SOURCE_DEFINITIONS.update(
+    {
+        "inss_discounts": {
+            "label": "INSS descontos",
+            "description": "Proventos compensáveis em INSS, como salário-família, maternidade e afastamentos elegíveis",
+            "memory_prefix": "Soma dos proventos compensáveis em INSS",
+            "order": 35,
+        },
+        "health_plan_reimbursement": {
+            "label": "Reembolso plano de saúde",
+            "description": "Rubrica REEMBOLSO PLANO DE SAUDE",
+            "memory_prefix": "Valor do reembolso de plano de saúde",
+            "order": 37,
+        },
+        "termination_net": {
+            "label": "Rescisão líquida",
+            "description": "Rubrica LIQUIDO RESCISAO",
+            "memory_prefix": "Valor líquido das rescisões",
+            "order": 47,
+        },
+        "absence_adjustment": {
+            "label": "Afastamentos e faltas",
+            "description": "Rubricas de descontos por afastamentos e faltas",
+            "memory_prefix": "Soma dos descontos por afastamentos e faltas",
+            "order": 48,
+        },
+        "employee_irrf": {
+            "label": "IRRF empregados",
+            "description": "IRRF mensal, férias e rescisão de empregados",
+            "memory_prefix": "Soma do IRRF de empregados",
+            "order": 55,
+        },
+        "health_plan_discount": {
+            "label": "Desconto plano de saúde",
+            "description": "Rubrica DESCONTO PLANO DE SAÚDE",
+            "memory_prefix": "Valor descontado de plano de saúde",
+            "order": 85,
+        },
+    }
+)
 THIRTEENTH_SUMMARY_SOURCE_KEYS = {
     "thirteenth_salary",
     "thirteenth_net_salary",
@@ -292,7 +332,10 @@ class SafeFormatDict(dict[str, str]):
         return "{" + key + "}"
 
 
-def default_mapping_rules(include_thirteenth_summary: bool = False) -> list[MappingRule]:
+def default_mapping_rules(
+    branch_code: str | None = None,
+    include_thirteenth_summary: bool = False,
+) -> list[MappingRule]:
     rules = [
         MappingRule(
             rule_id="vacation_provision",
@@ -405,6 +448,85 @@ def default_mapping_rules(include_thirteenth_summary: bool = False) -> list[Mapp
             order=90,
         ),
     ]
+    if branch_code == "67":
+        for rule in rules:
+            if rule.rule_id == "thirteenth_provision":
+                rule.start_lot_strategy = "never"
+            if rule.rule_id == "vacation_advance":
+                rule.order = 41
+            if rule.rule_id == "transport_discount":
+                rule.history_template = "DESCONTO S FOLHA {reference}"
+                rule.order = 39
+        rules.extend(
+            [
+                MappingRule(
+                    rule_id="inss_discounts",
+                    label="INSS descontos",
+                    source_key="inss_discounts",
+                    debit_account="1903",
+                    credit_account="",
+                    history_template="INSS DESCONTOS {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=35,
+                ),
+                MappingRule(
+                    rule_id="health_plan_reimbursement",
+                    label="Reembolso plano de saúde",
+                    source_key="health_plan_reimbursement",
+                    debit_account="2641",
+                    credit_account="",
+                    history_template="REEMBOLSO PLANO DE SAUDE {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=37,
+                ),
+                MappingRule(
+                    rule_id="health_plan_discount",
+                    label="Desconto plano de saúde",
+                    source_key="health_plan_discount",
+                    debit_account="",
+                    credit_account="2641",
+                    history_template="DESCONTO PLANO DE SAUDE {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=38,
+                ),
+                MappingRule(
+                    rule_id="termination_net",
+                    label="Rescisão",
+                    source_key="termination_net",
+                    debit_account="",
+                    credit_account="1906",
+                    history_template="RESCISAO {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=40,
+                ),
+                MappingRule(
+                    rule_id="absence_adjustment",
+                    label="Afastamento",
+                    source_key="absence_adjustment",
+                    debit_account="",
+                    credit_account="2583",
+                    history_template="AFASTAMENTO {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=42,
+                ),
+                MappingRule(
+                    rule_id="employee_irrf",
+                    label="IRRF empregados",
+                    source_key="employee_irrf",
+                    debit_account="",
+                    credit_account="1909",
+                    history_template="IRRF EMPREGADOS {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=58,
+                ),
+            ]
+        )
     if include_thirteenth_summary:
         rules.extend(
             [
@@ -917,12 +1039,50 @@ def collect_provento_rubrics(block: CompetencyBlock) -> dict[str, Decimal]:
 
 def is_vacation_provento(name: str) -> bool:
     normalized = normalize_key(name)
-    return "FERIAS" in normalized
+    # Alguns resumos usam abreviações como "FER" e linhas de "ABONO"
+    # para verbas de férias; precisamos tratá-las como parte da provisão.
+    return (
+        "FERIAS" in normalized
+        or " FER " in f" {normalized} "
+        or "ABONO" in normalized
+    )
 
 
 def is_thirteenth_provento(name: str) -> bool:
     normalized = normalize_key(name)
     return "13" in normalized
+
+
+def is_inss_discount_provento(name: str) -> bool:
+    normalized = normalize_key(name)
+    return normalized in {
+        "SALARIO FAMILIA",
+        "SALARIO FAMILIA RETROATIVO",
+        "SALARIO MATERNIDADE DIAS",
+        "ANUENIO DOENCA",
+        "ANUENIO LIC.MATERN",
+        "DIAS AFAST.INSS (P/DOENCA)",
+        "DIAS AFAST. P/DOENCA C/DIR.INTEGRAIS",
+    }
+
+
+def is_absence_discount_rubric(name: str) -> bool:
+    normalized = normalize_key(name)
+    return normalized in {
+        "DESCONTO DIAS AFASTADOS",
+        "DIAS FALTAS",
+        "HORAS FALTAS PARCIAL",
+    }
+
+
+def is_employee_irrf_rubric(name: str) -> bool:
+    normalized = normalize_key(name)
+    return normalized in {
+        "IMPOSTO DE RENDA",
+        "IRRF FERIAS",
+        "IRRF SOBRE RESCISAO",
+        "IRRF 13O SALARIO RESCISAO",
+    }
 
 
 def normalize_key(value: str) -> str:
@@ -1007,14 +1167,30 @@ def source_label(source_key: str) -> str:
     return sanitize_text(SOURCE_DEFINITIONS.get(source_key, {}).get("label", source_key))
 
 
-def build_context(block: CompetencyBlock) -> CalculationContext:
+def build_context(block: CompetencyBlock, branch_code: str | None = None) -> CalculationContext:
     rubrics = collect_rubrics(block)
     provento_rubrics = collect_provento_rubrics(block)
+    use_branch_67_rules = branch_code == "67"
+
+    inss_discount_components = [
+        (name, value)
+        for name, value in provento_rubrics.items()
+        if is_inss_discount_provento(name)
+        if value > 0
+    ] if use_branch_67_rules else []
+    health_plan_reimbursement_components = [
+        (name, value)
+        for name, value in provento_rubrics.items()
+        if normalize_key(name) == "REEMBOLSO PLANO DE SAUDE"
+        if value > 0
+    ] if use_branch_67_rules else []
 
     regular_components = [
         (name, value)
         for name, value in provento_rubrics.items()
         if not is_vacation_provento(name) and not is_thirteenth_provento(name)
+        if name not in {item[0] for item in inss_discount_components}
+        if name not in {item[0] for item in health_plan_reimbursement_components}
     ]
     vacation_components = [
         (name, value)
@@ -1034,13 +1210,37 @@ def build_context(block: CompetencyBlock) -> CalculationContext:
     transport_discount_components = [
         ("VALE TRANSPORTE", rubrics.get("VALE TRANSPORTE", Decimal("0.00")))
     ]
+    termination_net_components = [
+        ("LIQUIDO RESCISAO", rubrics.get("LIQUIDO RESCISAO", Decimal("0.00")))
+    ] if use_branch_67_rules else []
+    absence_adjustment_components = [
+        (name, value)
+        for name, value in rubrics.items()
+        if is_absence_discount_rubric(name)
+        if value > 0
+    ] if use_branch_67_rules else []
+    employee_irrf_components = [
+        (name, value)
+        for name, value in rubrics.items()
+        if is_employee_irrf_rubric(name)
+        if value > 0
+    ] if use_branch_67_rules else []
+    health_plan_discount_components = [
+        ("DESCONTO PLANO DE SAÚDE", rubrics.get("DESCONTO PLANO DE SAÚDE", Decimal("0.00")))
+    ] if use_branch_67_rules else []
     employee_inss_components = [("Segurados", find_value_after_label(block, "Segurados:"))]
-    fgts_components = [("Valor do FGTS", find_value_after_label(block, "Valor do FGTS:"))]
+    fgts_components = [
+        ("Valor do FGTS", find_value_after_label(block, "Valor do FGTS:")),
+        ("Valor do FGTS Aprendiz", find_value_after_label(block, "Valor do FGTS Aprendiz:")),
+        ("Valor FGTS Rescisório", find_value_after_label(block, "Valor FGTS Rescisório:")),
+        ("Valor FGTS Resc. mês ant.", find_value_after_label(block, "Valor FGTS Resc. mês ant.:")),
+    ]
     pis_components = [("Valor PIS", find_value_after_label(block, "Valor PIS:"))]
     net_salary_components = [("Líquido Geral", find_value_after_label(block, "Líquido Geral:"))]
     employer_components = [
         ("Empresa", find_value_after_label(block, "Empresa:")),
         ("RAT", find_value_after_label(block, "RAT:")),
+        ("Contribuintes", find_value_after_label(block, "Contribuintes:")),
         ("Terceiros", find_value_after_label(block, "Terceiros:")),
     ]
 
@@ -1048,28 +1248,44 @@ def build_context(block: CompetencyBlock) -> CalculationContext:
         "vacation_total": sum_decimal(value for _, value in vacation_components),
         "thirteenth_difference": sum_decimal(value for _, value in thirteenth_components),
         "regular_salary": sum_decimal(value for _, value in regular_components),
+        "inss_discounts": sum_decimal(value for _, value in inss_discount_components),
+        "health_plan_reimbursement": sum_decimal(
+            value for _, value in health_plan_reimbursement_components
+        ),
         "vacation_advance": rubrics.get("ADIANTAMENTO DE FERIAS", Decimal("0.00")),
         "transport_discount": transport_discount_components[0][1],
+        "termination_net": termination_net_components[0][1] if termination_net_components else Decimal("0.00"),
+        "absence_adjustment": sum_decimal(value for _, value in absence_adjustment_components),
         "net_salary": net_salary_components[0][1],
+        "employee_irrf": sum_decimal(value for _, value in employee_irrf_components),
         "employee_inss": employee_inss_components[0][1],
-        "fgts": fgts_components[0][1],
+        "fgts": sum_decimal(value for _, value in fgts_components),
         "pis": pis_components[0][1],
+        "health_plan_discount": health_plan_discount_components[0][1] if health_plan_discount_components else Decimal("0.00"),
         "employer_inss": sum_decimal(value for _, value in employer_components),
     }
     components = {
         "vacation_total": vacation_components,
         "thirteenth_difference": thirteenth_components,
         "regular_salary": regular_components,
+        "inss_discounts": inss_discount_components,
+        "health_plan_reimbursement": health_plan_reimbursement_components,
         "vacation_advance": [
             item for item in vacation_advance_components if item[1] > 0
         ],
         "transport_discount": [
             item for item in transport_discount_components if item[1] > 0
         ],
+        "termination_net": [item for item in termination_net_components if item[1] > 0],
+        "absence_adjustment": absence_adjustment_components,
         "net_salary": [item for item in net_salary_components if item[1] > 0],
+        "employee_irrf": employee_irrf_components,
         "employee_inss": [item for item in employee_inss_components if item[1] > 0],
         "fgts": [item for item in fgts_components if item[1] > 0],
         "pis": [item for item in pis_components if item[1] > 0],
+        "health_plan_discount": [
+            item for item in health_plan_discount_components if item[1] > 0
+        ],
         "employer_inss": [item for item in employer_components if item[1] > 0],
     }
     flags = {
@@ -1281,7 +1497,10 @@ def analysis_to_state(
     rules = (
         mapping_rules
         if mapping_rules is not None
-        else default_mapping_rules(include_thirteenth_summary=include_thirteenth_summary)
+        else default_mapping_rules(
+            branch_code=branch_code,
+            include_thirteenth_summary=include_thirteenth_summary,
+        )
     )
     return {
         "branch_code": branch_code,
@@ -1300,7 +1519,7 @@ def analyze_workbook(workbook_path: str | Path) -> dict[str, object]:
         include_thirteenth_summary = True
     else:
         blocks = split_page_one_blocks(rows)
-        contexts = [build_context(block) for block in blocks]
+        contexts = [build_context(block, branch_code=branch_code) for block in blocks]
         include_thirteenth_summary = False
     return analysis_to_state(
         branch_code=branch_code,
