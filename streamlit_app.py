@@ -32,6 +32,8 @@ st.set_page_config(
 APP_DIR = Path(__file__).parent
 SHARED_MAPPING_PATH = APP_DIR / "data" / "shared_mapping_rules.json"
 GLOBAL_MAPPING_KEY = "__global__"
+ANALYSIS_SIGNATURE_VERSION = "2026-05-07-branch67-v2"
+SPECIALIZED_BRANCH_KEYS = {"67"}
 
 
 def main() -> None:
@@ -220,20 +222,23 @@ def saved_global_mapping_rules() -> list[dict[str, object]] | None:
     rules = store.get(GLOBAL_MAPPING_KEY)
     if rules:
         return normalize_rule_list(rules)
-
-    branch_based_rules = [
-        normalize_rule_list(rules)
-        for key, rules in store.items()
-        if key != GLOBAL_MAPPING_KEY and isinstance(rules, list) and rules
-    ]
-    if branch_based_rules:
-        return branch_based_rules[0]
     return None
+
+
+def saved_mapping_rules_to_apply(analyzed_state: dict[str, object]) -> list[dict[str, object]] | None:
+    branch_code = str(analyzed_state.get("branch_code") or "")
+    if branch_code:
+        branch_rules = saved_mapping_rules_for_branch(branch_code)
+        if branch_rules:
+            return branch_rules
+    if branch_code in SPECIALIZED_BRANCH_KEYS:
+        return None
+    return saved_global_mapping_rules()
 
 
 def resolve_mapping_rules(analyzed_state: dict[str, object]) -> list[dict[str, object]]:
     default_rules = [dict(rule) for rule in list(analyzed_state["mapping_rules"])]
-    saved_rules = saved_global_mapping_rules()
+    saved_rules = saved_mapping_rules_to_apply(analyzed_state)
     if not saved_rules:
         return default_rules
     return merge_mapping_rules(default_rules, saved_rules)
@@ -273,7 +278,13 @@ def handle_upload() -> None:
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
         secondary_bytes = thirteenth_file.getvalue() if thirteenth_file is not None else b""
-        signature = hashlib.sha256(file_bytes + b"::" + secondary_bytes).hexdigest()
+        signature = hashlib.sha256(
+            file_bytes
+            + b"::"
+            + secondary_bytes
+            + b"::"
+            + ANALYSIS_SIGNATURE_VERSION.encode("utf-8")
+        ).hexdigest()
         if signature != st.session_state.uploaded_signature:
             try:
                 with TemporaryDirectory() as temp_dir:
@@ -333,12 +344,12 @@ def save_current_mapping_as_shared_default() -> None:
 
 
 def restore_shared_mapping() -> bool:
-    saved_rules = saved_global_mapping_rules()
-    if not saved_rules:
-        return False
-
     base_state = st.session_state.analysis_state
     if not base_state:
+        return False
+
+    saved_rules = saved_mapping_rules_to_apply(base_state)
+    if not saved_rules:
         return False
 
     st.session_state.mapping_rules = merge_mapping_rules(
