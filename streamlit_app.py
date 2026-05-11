@@ -436,6 +436,11 @@ def render_entries(preview: dict[str, object]) -> None:
         '<div class="helper">Cada linha mostra a origem do valor e a memória de cálculo correspondente.</div>',
         unsafe_allow_html=True,
     )
+    if preview.get("needs_thirteenth_summary"):
+        st.warning(
+            "O arquivo atual indica movimentos de 13º, mas o fechamento anual do 13º não foi enviado. "
+            "Para gerar os lançamentos anuais e os reflexos extras de FGTS/PIS em dezembro, envie também o arquivo complementar `Resumo Mensal13`."
+        )
     entries_df = pd.DataFrame(list(preview["entries"]))
     if not entries_df.empty:
         entries_df = entries_df.rename(

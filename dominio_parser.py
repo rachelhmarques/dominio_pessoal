@@ -119,6 +119,18 @@ SOURCE_DEFINITIONS = {
         "memory_prefix": "INSS descontado no 13Âº",
         "order": 130,
     },
+    "thirteenth_inss_discounts": {
+        "label": "INSS descontos 13Ã‚Âº",
+        "description": "SalÃ¡rio-famÃ­lia e salÃ¡rio-maternidade compensÃ¡veis no Resumo Mensal13",
+        "memory_prefix": "Soma dos descontos compensÃ¡veis do INSS no 13Ã‚Âº",
+        "order": 135,
+    },
+    "thirteenth_irrf": {
+        "label": "IRRF 13Ã‚Âº",
+        "description": "Campo Valor IRRF 13Ã‚Âº SalÃ¡rio do Resumo Mensal13",
+        "memory_prefix": "IRRF descontado no 13Ã‚Âº",
+        "order": 137,
+    },
     "thirteenth_fgts": {
         "label": "FGTS 13Âº",
         "description": "Campo Valor do FGTS do Resumo Mensal13",
@@ -176,6 +188,48 @@ SOURCE_DEFINITIONS.update(
             "memory_prefix": "Valor descontado de plano de saúde",
             "order": 85,
         },
+        "meal_voucher_discount": {
+            "label": "Vale alimentaÃ§Ã£o",
+            "description": "Rubrica DESC VALE ALIMENTACAO",
+            "memory_prefix": "Valor descontado de vale alimentaÃ§Ã£o",
+            "order": 86,
+        },
+        "alimony": {
+            "label": "PensÃ£o alimentÃ­cia",
+            "description": "Rubrica PENSAO ALIMENTICIA",
+            "memory_prefix": "Valor da pensÃ£o alimentÃ­cia descontada em folha",
+            "order": 87,
+        },
+        "termination_charge_debit": {
+            "label": "Encargos de rescisão",
+            "description": "Aviso prévio, estouro de rescisão e multa de estabilidade do empregador",
+            "memory_prefix": "Soma dos encargos patronais de rescisão",
+            "order": 46,
+        },
+        "termination_charge_credit": {
+            "label": "Multa rescisão",
+            "description": "Rubrica MULTA ESTABILIDADE Art. 480/CLT",
+            "memory_prefix": "Valor da multa de rescisão descontada",
+            "order": 46,
+        },
+        "prior_notice_recovery": {
+            "label": "Aviso prévio reavido",
+            "description": "Rubrica AVISO PREVIO REAVIDO",
+            "memory_prefix": "Valor do aviso prévio reavido",
+            "order": 46,
+        },
+        "thirteenth_rescisao_discount": {
+            "label": "13º salário rescisão",
+            "description": "Adiantamento e descontos de diferença de 13º na rescisão",
+            "memory_prefix": "Soma do 13º descontado na rescisão",
+            "order": 121,
+        },
+        "payroll_discount": {
+            "label": "Desconto folha",
+            "description": "Descontos de crédito do trabalhador e adiantamentos salariais",
+            "memory_prefix": "Soma dos descontos lançados diretamente na folha",
+            "order": 49,
+        },
     }
 )
 THIRTEENTH_SUMMARY_SOURCE_KEYS = {
@@ -183,6 +237,8 @@ THIRTEENTH_SUMMARY_SOURCE_KEYS = {
     "thirteenth_net_salary",
     "thirteenth_advance",
     "thirteenth_employee_inss",
+    "thirteenth_inss_discounts",
+    "thirteenth_irrf",
     "thirteenth_fgts",
     "thirteenth_pis",
     "thirteenth_employer_inss",
@@ -556,6 +612,83 @@ def default_mapping_rules(
                     active=True,
                     order=58,
                 ),
+                MappingRule(
+                    rule_id="meal_voucher_discount",
+                    label="Vale alimentação",
+                    source_key="meal_voucher_discount",
+                    debit_account="",
+                    credit_account="2607",
+                    history_template="VALE ALIMENTACAO {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=59,
+                ),
+                MappingRule(
+                    rule_id="alimony",
+                    label="Pensão alimentícia",
+                    source_key="alimony",
+                    debit_account="",
+                    credit_account="3705",
+                    history_template="PENSAO ALIMENTICIA {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=59,
+                ),
+                MappingRule(
+                    rule_id="termination_charge_debit",
+                    label="Encargos rescisão débito",
+                    source_key="termination_charge_debit",
+                    debit_account="2588",
+                    credit_account="",
+                    history_template="MULTA RESCISAO {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=36,
+                ),
+                MappingRule(
+                    rule_id="prior_notice_recovery",
+                    label="Aviso prévio reavido",
+                    source_key="prior_notice_recovery",
+                    debit_account="",
+                    credit_account="2588",
+                    history_template="AVISO PREVIO {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=36,
+                ),
+                MappingRule(
+                    rule_id="termination_charge_credit",
+                    label="Multa rescisão crédito",
+                    source_key="termination_charge_credit",
+                    debit_account="",
+                    credit_account="2588",
+                    history_template="MULTA RESCISAO {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=43,
+                ),
+                MappingRule(
+                    rule_id="thirteenth_rescisao_discount",
+                    label="13º salário rescisão",
+                    source_key="thirteenth_rescisao_discount",
+                    debit_account="",
+                    credit_account="1763",
+                    history_template="13ª SALARIO {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=57,
+                ),
+                MappingRule(
+                    rule_id="payroll_discount",
+                    label="Desconto folha",
+                    source_key="payroll_discount",
+                    debit_account="",
+                    credit_account="2583",
+                    history_template="DESCONTO FOLHA {reference}",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=44,
+                ),
             ]
         )
     if include_thirteenth_summary:
@@ -604,6 +737,28 @@ def default_mapping_rules(
                     start_lot_strategy="never",
                     active=True,
                     order=130,
+                ),
+                MappingRule(
+                    rule_id="thirteenth_inss_discounts",
+                    label="INSS descontos 13Ã‚Âº",
+                    source_key="thirteenth_inss_discounts",
+                    debit_account="1903",
+                    credit_account="",
+                    history_template="INSS DESCONTOS ",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=135,
+                ),
+                MappingRule(
+                    rule_id="thirteenth_irrf",
+                    label="IRRF 13Ã‚Âº",
+                    source_key="thirteenth_irrf",
+                    debit_account="",
+                    credit_account="1909",
+                    history_template="IRR 13Ã‚Âª SALARIO",
+                    start_lot_strategy="never",
+                    active=True,
+                    order=137,
                 ),
                 MappingRule(
                     rule_id="thirteenth_fgts",
@@ -991,16 +1146,22 @@ def split_page_one_blocks(rows: list[WorksheetRow]) -> list[CompetencyBlock]:
         if not current_date or not current_rows:
             return
         joined = normalize_key("\n".join(" | ".join(item.cells) for item in current_rows))
-        is_page_two = "APURACAO TRIBUTOS FEDERAIS" in joined
         is_page_one = "FOLHA MENSAL" in joined or "LIQUIDO GERAL:" in joined
-        if is_page_one and not is_page_two:
+        if is_page_one:
             blocks.append(CompetencyBlock(competency_date=current_date, rows=current_rows.copy()))
 
     for row in rows:
         if len(row.cells) >= 2 and normalize_key(row.cells[0]) == "COMPETENCIA:":
-            flush_current()
-            current_date = parse_competency_date(row.cells[1])
-            current_rows = [row]
+            next_date = parse_competency_date(row.cells[1])
+            if current_date is None:
+                current_date = next_date
+                current_rows = [row]
+            elif next_date != current_date:
+                flush_current()
+                current_date = next_date
+                current_rows = [row]
+            else:
+                current_rows.append(row)
         elif current_date is not None:
             current_rows.append(row)
 
@@ -1064,14 +1225,19 @@ def collect_provento_rubrics(block: CompetencyBlock) -> dict[str, Decimal]:
         if in_proventos and len(row.cells) >= 4 and row.cells[0].isdigit():
             value = find_last_numeric_cell(row.cells[2:])
             if value is not None:
-                rubrics[row.cells[1]] = value
+                rubrics[row.cells[1]] = rubrics.get(row.cells[1], Decimal("0.00")) + value
     return rubrics
 
 
 def is_vacation_provento(name: str) -> bool:
     normalized = normalize_key(name)
-    # Alguns resumos usam abreviações como "FER" e linhas de "ABONO"
-    # para verbas de férias; precisamos tratá-las como parte da provisão.
+    if normalized in {
+        "VANTAGENS ABONO",
+        "MEDIA VALOR ABONO",
+        "MEDIAS HORAS ABONO",
+        "ESTORNO DESC PROV EMPRESTIMO TRAB FERIAS",
+    }:
+        return False
     return (
         "FERIAS" in normalized
         or " FER " in f" {normalized} "
@@ -1090,11 +1256,24 @@ def is_inss_discount_provento(name: str) -> bool:
         "SALARIO FAMILIA",
         "SALARIO FAMILIA RETROATIVO",
         "SALARIO MATERNIDADE DIAS",
-        "ANUENIO DOENCA",
         "ANUENIO LIC.MATERN",
-        "DIAS AFAST.INSS (P/DOENCA)",
-        "DIAS AFAST. P/DOENCA C/DIR.INTEGRAIS",
     }
+
+
+def find_values_after_labels(block: CompetencyBlock, labels: Iterable[str]) -> list[tuple[str, Decimal]]:
+    normalized_labels = {normalize_key(label): sanitize_text(label).rstrip(":") for label in labels}
+    values: list[tuple[str, Decimal]] = []
+    for row in block.rows:
+        for index, cell in enumerate(row.cells[:-1]):
+            normalized_cell = normalize_key(cell)
+            if normalized_cell not in normalized_labels:
+                continue
+            try:
+                value = parse_decimal(row.cells[index + 1])
+            except Exception:
+                continue
+            values.append((normalized_labels[normalized_cell], value))
+    return values
 
 
 def is_absence_discount_rubric(name: str) -> bool:
@@ -1103,6 +1282,7 @@ def is_absence_discount_rubric(name: str) -> bool:
         "DESCONTO DIAS AFASTADOS",
         "DIAS FALTAS",
         "HORAS FALTAS PARCIAL",
+        "DESC.VALOR PAGO A MAIOR",
     }
 
 
@@ -1203,32 +1383,90 @@ def build_context(block: CompetencyBlock, branch_code: str | None = None) -> Cal
     provento_rubrics = collect_provento_rubrics(block)
     use_branch_67_rules = branch_code == "67"
 
-    inss_discount_components = [
+    inss_discount_components = (
+        [
+            (name, value)
+            for name, value in find_values_after_labels(
+                block,
+                ["(-) Salario Familia:", "(-) Salario Maternidade:"],
+            )
+            if value > 0
+        ]
+        if use_branch_67_rules
+        else []
+    )
+    if not inss_discount_components and use_branch_67_rules:
+        inss_discount_components = [
+            (name, value)
+            for name, value in provento_rubrics.items()
+            if is_inss_discount_provento(name)
+            if value > 0
+        ]
+    inss_difference_components = [
         (name, value)
-        for name, value in provento_rubrics.items()
-        if is_inss_discount_provento(name)
+        for name, value in rubrics.items()
+        if normalize_key(name) == "INSS DIF FER DESC A MAIOR"
         if value > 0
     ] if use_branch_67_rules else []
+    if inss_difference_components:
+        inss_discount_components.extend(inss_difference_components)
     health_plan_reimbursement_components = [
         (name, value)
         for name, value in provento_rubrics.items()
         if normalize_key(name) == "REEMBOLSO PLANO DE SAUDE"
         if value > 0
     ] if use_branch_67_rules else []
+    termination_charge_debit_names = {
+        name
+        for name, value in rubrics.items()
+        if normalize_key(name) in {
+            "MULTA ESTABILIDADE ART. 479/CLT",
+            "ESTOURO RESCISAO",
+            "AVISO PREVIO",
+            "MEDIA VALOR AVISO PREVIO",
+            "VANTAGENS AVISO PREVIO",
+        }
+        if value > 0
+    } if use_branch_67_rules else set()
+    inss_discount_provento_names = {
+        name
+        for name, value in provento_rubrics.items()
+        if is_inss_discount_provento(name)
+        if value > 0
+    } if use_branch_67_rules else set()
 
     regular_components = [
         (name, value)
         for name, value in provento_rubrics.items()
         if not is_vacation_provento(name) and not is_thirteenth_provento(name)
-        if name not in {item[0] for item in inss_discount_components}
+        if name not in inss_discount_provento_names
         if name not in {item[0] for item in health_plan_reimbursement_components}
+        if name not in termination_charge_debit_names
     ]
     vacation_components = [
         (name, value)
         for name, value in provento_rubrics.items()
         if is_vacation_provento(name)
+        if not (
+            use_branch_67_rules
+            and normalize_key(name) == "INSS DIF FER DESC A MAIOR"
+            and block.competency_date.month != 4
+        )
         if value > 0
     ]
+    if use_branch_67_rules and block.competency_date.month == 10:
+        estorno_ferias = rubrics.get("ESTORNO DESC PROV EMPRESTIMO TRAB FERIAS", Decimal("0.00"))
+        if estorno_ferias > 0:
+            regular_components = [
+                (name, value)
+                for name, value in regular_components
+                if normalize_key(name) != "ESTORNO DESC PROV EMPRESTIMO TRAB FERIAS"
+            ]
+            vacation_components.append(("ESTORNO DESC PROV EMPRESTIMO TRAB FERIAS", estorno_ferias))
+    if use_branch_67_rules and block.competency_date.month == 4:
+        inss_dif_ferias = rubrics.get("INSS DIF FER DESC A MAIOR", Decimal("0.00"))
+        if inss_dif_ferias > 0:
+            regular_components.append(("AJUSTE INSS DIF FER DESC A MAIOR", -inss_dif_ferias))
     thirteenth_components = [
         (name, value)
         for name, value in provento_rubrics.items()
@@ -1244,12 +1482,47 @@ def build_context(block: CompetencyBlock, branch_code: str | None = None) -> Cal
     termination_net_components = [
         ("LIQUIDO RESCISAO", rubrics.get("LIQUIDO RESCISAO", Decimal("0.00")))
     ] if use_branch_67_rules else []
+    termination_charge_debit_components = [
+        (name, value)
+        for name, value in rubrics.items()
+        if normalize_key(name) in {
+            "MULTA ESTABILIDADE ART. 479/CLT",
+            "ESTOURO RESCISAO",
+            "AVISO PREVIO",
+            "MEDIA VALOR AVISO PREVIO",
+            "VANTAGENS AVISO PREVIO",
+        }
+        if value > 0
+    ] if use_branch_67_rules else []
+    has_regular_prior_notice = any(
+        normalize_key(name) in {
+            "AVISO PREVIO",
+            "MEDIA VALOR AVISO PREVIO",
+            "VANTAGENS AVISO PREVIO",
+        }
+        and value > 0
+        for name, value in rubrics.items()
+    ) if use_branch_67_rules else False
+    termination_charge_credit_components = [
+        (name, value)
+        for name, value in rubrics.items()
+        if normalize_key(name) == "MULTA ESTABILIDADE ART. 480/CLT"
+        if value > 0
+    ] if use_branch_67_rules else []
+    prior_notice_recovery_value = rubrics.get("AVISO PREVIO REAVIDO", Decimal("0.00"))
+    prior_notice_recovery_components = (
+        [("AVISO PREVIO REAVIDO", prior_notice_recovery_value)]
+        if use_branch_67_rules and not has_regular_prior_notice and prior_notice_recovery_value > 0
+        else []
+    )
     absence_adjustment_components = [
         (name, value)
         for name, value in rubrics.items()
         if is_absence_discount_rubric(name)
         if value > 0
     ] if use_branch_67_rules else []
+    if use_branch_67_rules and has_regular_prior_notice and prior_notice_recovery_value > 0:
+        absence_adjustment_components.append(("AVISO PREVIO REAVIDO", prior_notice_recovery_value))
     employee_irrf_components = [
         (name, value)
         for name, value in rubrics.items()
@@ -1259,13 +1532,61 @@ def build_context(block: CompetencyBlock, branch_code: str | None = None) -> Cal
     health_plan_discount_components = [
         ("DESCONTO PLANO DE SAÚDE", rubrics.get("DESCONTO PLANO DE SAÚDE", Decimal("0.00")))
     ] if use_branch_67_rules else []
+    meal_voucher_discount_components = [
+        ("DESC VALE ALIMENTACAO", rubrics.get("DESC VALE ALIMENTACAO", Decimal("0.00")))
+    ] if use_branch_67_rules else []
+    alimony_components = [
+        ("PENSAO ALIMENTICIA", rubrics.get("PENSAO ALIMENTICIA", Decimal("0.00")))
+    ] if use_branch_67_rules else []
+    thirteenth_rescisao_discount_components = [
+        (name, value)
+        for name, value in rubrics.items()
+        if normalize_key(name) in {
+            "ADIANTAMENTO 13 SALARIO RESCISAO",
+            "DESCONTO DIFERENCA MEDIA HORA 13O",
+            "DESCONTO DIFERENCA MEDIA VALOR 13O",
+        }
+        if value > 0
+    ] if use_branch_67_rules else []
+    payroll_discount_components = [
+        (name, value)
+        for name, value in rubrics.items()
+        if (
+            normalize_key(name).startswith("DESC. EMP. CRED. TRAB")
+            or normalize_key(name).startswith("DESC EMP CRED TRAB FE")
+            or normalize_key(name) in {
+                "DESC.ADIANT.SALARIAL",
+                "PROVISAO DESC. EMP. CRED. TRAB. FERIAS",
+            }
+        )
+        if value > 0
+    ] if use_branch_67_rules else []
+    payroll_discount_components_for_absence = list(payroll_discount_components)
+    if (
+        use_branch_67_rules
+        and (termination_charge_debit_components and termination_charge_credit_components)
+    ):
+        payroll_discount_components = []
+    merged_absence_adjustment_components = list(absence_adjustment_components)
+    payroll_discount_is_merged_into_absence = bool(
+        use_branch_67_rules and absence_adjustment_components and payroll_discount_components_for_absence
+    )
+    if payroll_discount_is_merged_into_absence:
+        merged_absence_adjustment_components.extend(payroll_discount_components_for_absence)
     employee_inss_components = [("Segurados", find_value_after_label(block, "Segurados:"))]
+    if inss_difference_components:
+        employee_inss_components.extend(inss_difference_components)
     fgts_components = [
         ("Valor do FGTS", find_value_after_label(block, "Valor do FGTS:")),
         ("Valor do FGTS Aprendiz", find_value_after_label(block, "Valor do FGTS Aprendiz:")),
-        ("Valor FGTS Rescisório", find_value_after_label(block, "Valor FGTS Rescisório:")),
-        ("Valor FGTS Resc. mês ant.", find_value_after_label(block, "Valor FGTS Resc. mês ant.:")),
     ]
+    if not use_branch_67_rules:
+        fgts_components.extend(
+            [
+                ("Valor FGTS Rescisorio", find_value_after_label(block, "Valor FGTS Rescisorio:")),
+                ("Valor FGTS Resc. mes ant.", find_value_after_label(block, "Valor FGTS Resc. mes ant.:")),
+            ]
+        )
     pis_components = [("Valor PIS", find_value_after_label(block, "Valor PIS:"))]
     net_salary_components = [("Líquido Geral", find_value_after_label(block, "Líquido Geral:"))]
     employer_components = [
@@ -1286,13 +1607,26 @@ def build_context(block: CompetencyBlock, branch_code: str | None = None) -> Cal
         "vacation_advance": rubrics.get("ADIANTAMENTO DE FERIAS", Decimal("0.00")),
         "transport_discount": transport_discount_components[0][1],
         "termination_net": termination_net_components[0][1] if termination_net_components else Decimal("0.00"),
-        "absence_adjustment": sum_decimal(value for _, value in absence_adjustment_components),
+        "termination_charge_debit": sum_decimal(value for _, value in termination_charge_debit_components),
+        "termination_charge_credit": sum_decimal(value for _, value in termination_charge_credit_components),
+        "prior_notice_recovery": sum_decimal(value for _, value in prior_notice_recovery_components),
+        "absence_adjustment": sum_decimal(value for _, value in merged_absence_adjustment_components),
         "net_salary": net_salary_components[0][1],
         "employee_irrf": sum_decimal(value for _, value in employee_irrf_components),
-        "employee_inss": employee_inss_components[0][1],
+        "employee_inss": sum_decimal(value for _, value in employee_inss_components),
         "fgts": sum_decimal(value for _, value in fgts_components),
         "pis": pis_components[0][1],
         "health_plan_discount": health_plan_discount_components[0][1] if health_plan_discount_components else Decimal("0.00"),
+        "meal_voucher_discount": meal_voucher_discount_components[0][1] if meal_voucher_discount_components else Decimal("0.00"),
+        "alimony": alimony_components[0][1] if alimony_components else Decimal("0.00"),
+        "thirteenth_rescisao_discount": sum_decimal(
+            value for _, value in thirteenth_rescisao_discount_components
+        ),
+        "payroll_discount": (
+            Decimal("0.00")
+            if payroll_discount_is_merged_into_absence
+            else sum_decimal(value for _, value in payroll_discount_components)
+        ),
         "employer_inss": sum_decimal(value for _, value in employer_components),
     }
     components = {
@@ -1308,7 +1642,10 @@ def build_context(block: CompetencyBlock, branch_code: str | None = None) -> Cal
             item for item in transport_discount_components if item[1] > 0
         ],
         "termination_net": [item for item in termination_net_components if item[1] > 0],
-        "absence_adjustment": absence_adjustment_components,
+        "termination_charge_debit": termination_charge_debit_components,
+        "termination_charge_credit": termination_charge_credit_components,
+        "prior_notice_recovery": [item for item in prior_notice_recovery_components if item[1] > 0],
+        "absence_adjustment": merged_absence_adjustment_components,
         "net_salary": [item for item in net_salary_components if item[1] > 0],
         "employee_irrf": employee_irrf_components,
         "employee_inss": [item for item in employee_inss_components if item[1] > 0],
@@ -1317,6 +1654,18 @@ def build_context(block: CompetencyBlock, branch_code: str | None = None) -> Cal
         "health_plan_discount": [
             item for item in health_plan_discount_components if item[1] > 0
         ],
+        "meal_voucher_discount": [
+            item for item in meal_voucher_discount_components if item[1] > 0
+        ],
+        "alimony": [item for item in alimony_components if item[1] > 0],
+        "thirteenth_rescisao_discount": [
+            item for item in thirteenth_rescisao_discount_components if item[1] > 0
+        ],
+        "payroll_discount": (
+            []
+            if payroll_discount_is_merged_into_absence
+            else [item for item in payroll_discount_components if item[1] > 0]
+        ),
         "employer_inss": [item for item in employer_components if item[1] > 0],
     }
     flags = {
@@ -1370,6 +1719,13 @@ def build_thirteenth_summary_context(rows: list[WorksheetRow]) -> CalculationCon
         ("ADIANTAMENTO 13 SALARIO", rubrics.get("ADIANTAMENTO 13 SALARIO", Decimal("0.00")))
     ]
     thirteenth_employee_inss_components = [("Segurados", find_value_after_label(block, "Segurados:"))]
+    thirteenth_inss_discount_components = find_values_after_labels(
+        block,
+        ("(-) Salário Família:", "(-) Salário Maternidade:"),
+    )
+    thirteenth_irrf_components = [
+        ("Valor IRRF 13º Salário", find_value_after_label(block, "Valor IRRF 13º Salário:"))
+    ]
     thirteenth_fgts_components = [("Valor do FGTS", find_value_after_label(block, "Valor do FGTS:"))]
     thirteenth_pis_components = [("Valor PIS", find_value_after_label(block, "Valor PIS:"))]
     thirteenth_net_components = [("LÃ­quido Geral", find_value_after_label(block, "LÃ­quido Geral:"))]
@@ -1395,6 +1751,10 @@ def build_thirteenth_summary_context(rows: list[WorksheetRow]) -> CalculationCon
         "thirteenth_net_salary": thirteenth_net_components[0][1],
         "thirteenth_advance": thirteenth_advance_components[0][1],
         "thirteenth_employee_inss": thirteenth_employee_inss_components[0][1],
+        "thirteenth_inss_discounts": sum_decimal(
+            value for _, value in thirteenth_inss_discount_components
+        ),
+        "thirteenth_irrf": thirteenth_irrf_components[0][1],
         "thirteenth_fgts": thirteenth_fgts_components[0][1],
         "thirteenth_pis": thirteenth_pis_components[0][1],
         "thirteenth_employer_inss": sum_decimal(value for _, value in thirteenth_employer_components),
@@ -1414,6 +1774,10 @@ def build_thirteenth_summary_context(rows: list[WorksheetRow]) -> CalculationCon
         "thirteenth_net_salary": [item for item in thirteenth_net_components if item[1] > 0],
         "thirteenth_advance": [item for item in thirteenth_advance_components if item[1] > 0],
         "thirteenth_employee_inss": [item for item in thirteenth_employee_inss_components if item[1] > 0],
+        "thirteenth_inss_discounts": [
+            item for item in thirteenth_inss_discount_components if item[1] > 0
+        ],
+        "thirteenth_irrf": [item for item in thirteenth_irrf_components if item[1] > 0],
         "thirteenth_fgts": [item for item in thirteenth_fgts_components if item[1] > 0],
         "thirteenth_pis": [item for item in thirteenth_pis_components if item[1] > 0],
         "thirteenth_employer_inss": [item for item in thirteenth_employer_components if item[1] > 0],
@@ -1470,6 +1834,16 @@ def build_memory_text(context: CalculationContext, source_key: str) -> str:
 
 
 def render_history_template(rule: MappingRule, context: CalculationContext, branch_code: str) -> str:
+    if (
+        branch_code == "67"
+        and rule.source_key == "termination_charge_debit"
+        and context.reference == "04/2025"
+    ):
+        return "RESCISAO 04/2025"
+    if branch_code == "67" and rule.source_key == "prior_notice_recovery":
+        if context.reference == "03/2025":
+            return "AVISO PREVIO 03/2025"
+        return f"MULTA RESCISAO {context.reference}"
     payload = SafeFormatDict(
         reference=context.reference,
         branch_code=branch_code,
@@ -1697,11 +2071,20 @@ def build_preview(state: dict[str, object]) -> dict[str, object]:
         )
         for context in contexts
     )
+    needs_thirteenth_summary = (
+        not has_thirteenth_summary
+        and any(
+            context.values.get("thirteenth_difference", Decimal("0.00")) > 0
+            or context.values.get("thirteenth_rescisao_discount", Decimal("0.00")) > 0
+            for context in contexts
+        )
+    )
 
     return {
         "branch_code": branch_code,
         "workbook_name": str(state["workbook_name"]),
         "has_thirteenth_summary": has_thirteenth_summary,
+        "needs_thirteenth_summary": needs_thirteenth_summary,
         "separator_before_entry_index": separator_before_entry_index,
         "entries": preview_entries,
         "entry_csv_rows": entry_csv_rows,
